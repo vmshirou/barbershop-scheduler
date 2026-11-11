@@ -1,0 +1,14 @@
+Aydame a arreglarlo para este caso:
+<TextField
+                label="Precio"
+                type="number"
+                value={price}
+                onChange={(event) => setPrice(event.target.value)}
+                error={touched && !!errors.price}
+                helperText={touched ? errors.price : ' '}
+                slotProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                required
+                fullWidth
+              />
+Me señala dentro de slotProps, startAdornment con lo siguiente:
+Object literal may only specify known properties, and 'startAdornment' does not exist in type '{ root?: SlotProps<ElementType<FormControlProps, keyof IntrinsicElements>, TextFieldRootSlotPropsOverrides, BaseTextFieldProps> | undefined; ... 4 more ...; select?: SlotProps<...> | undefined; } | { ...; } | { ...; }'.
