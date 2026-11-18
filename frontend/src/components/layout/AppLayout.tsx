@@ -27,24 +27,14 @@ export function AppLayout() {
             Agenda El Corte
           </Typography>
 
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <Button color="inherit" component={RouterLink} to="/">
-              Inicio
-            </Button>
+          <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+            <Button color="inherit" component={RouterLink} to="/">Inicio</Button>
+            <Button color="inherit" component={RouterLink} to="/calendario">Calendario</Button>
             {user?.rol === 'ADMIN' && (
-              <Button color="inherit" component={RouterLink} to="/admin/clientes">
-                  Administración
-              </Button>
+              <Button color="inherit" component={RouterLink} to="/admin/clientes">Administración</Button>
             )}
-            <Button color="inherit" component={RouterLink} to="/agenda">
-              Agenda
-            </Button>
-            <Typography variant="body2">
-              {user?.name} ({user?.rol})
-            </Typography>
-            <Button color="inherit" onClick={handleSignOut}>
-              Salir
-            </Button>
+            <Typography variant="body2">{user?.name} ({user?.rol})</Typography>
+            <Button color="inherit" onClick={handleSignOut}>Salir</Button>
           </Stack>
         </Toolbar>
       </AppBar>

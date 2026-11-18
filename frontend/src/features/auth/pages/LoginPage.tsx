@@ -9,12 +9,11 @@ import {
   Typography,
 } from '@mui/material';
 import { type UserSend } from '../api';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export function LoginPage() {
   const { signIn, status, error } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('')

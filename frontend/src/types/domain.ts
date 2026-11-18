@@ -28,16 +28,16 @@ export interface Workday {
     id: string;
     datestamp: string;
     start_time: string;
-    end_time: string;
+    duration: number;
 }
 
 export interface Appointment {
   id: string;
-  client_id: string;
-  service_id: string;
-  barber_id: string;
-  workday_id: string;
+  id_client: string;
+  id_service: string;
+  id_barber: string;
+  id_workday: string;
   start_time: string;
-  status: AppointmentStatus;
+  state: AppointmentStatus;
   notes: string;
 }

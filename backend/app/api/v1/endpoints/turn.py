@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db, require_admin
 from app.crud.turn import validate_turn
 from app.models.turn import Turn
-from app.models.user import User
+from app.models.user import User, RolEnum
 from app.schemas.turn import (
     TurnCreate,
     StateTurnUpdate,
@@ -17,7 +17,7 @@ from app.schemas.turn import (
 router = APIRouter(prefix="/turnos", tags=["turnos"])
 
 
-@router.get("/jornada/{id_jornada}", response_model=list[TurnReadDetailed])
+@router.get("/jornada/{id_jornada}", response_model=list[TurnRead])
 def por_jornada(
     id_jornada: int,
     db: Session = Depends(get_db),
@@ -31,9 +31,27 @@ def por_jornada(
     )
 
 
+@router.get("/jornada/{id_jornada}/barbero/{id_barbero}", response_model=list[TurnRead])
+def por_jornada_y_barbero(
+    id_jornada: int,
+    id_barbero: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Barbers can only see their own appointments
+    if current_user.rol == RolEnum.BARBER and current_user.id != id_barbero:
+        raise HTTPException(403, "No autorizado para ver turnos de otro barbero")
+    return (
+        db.query(Turn)
+        .filter(Turn.id_workday == id_jornada, Turn.id_barber == id_barbero)
+        .order_by(Turn.start_time)
+        .all()
+    )
+
+
 @router.get(
     "/cliente/{id_cliente}",
-    response_model=list[TurnReadDetailed],
+    response_model=list[TurnRead],
     dependencies=[Depends(require_admin)],
 )
 def por_cliente(id_cliente: int, db: Session = Depends(get_db)):
@@ -104,11 +122,16 @@ def cambiar_estado(
     id: int,
     data: StateTurnUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     t = db.get(Turn, id)
     if not t:
         raise HTTPException(404, "Turno no encontrado")
+    
+    # Only the assigned barber or an admin can change the status
+    if current_user.rol == RolEnum.BARBER and current_user.id != t.id_barber:
+        raise HTTPException(403, "No autorizado para cambiar el estado de este turno")
+    
     t.state = data.state
     db.commit()
     db.refresh(t)

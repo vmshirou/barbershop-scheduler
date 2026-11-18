@@ -45,6 +45,12 @@ def _login_user(client, phone, password):
     return response
 
 
+def _get_access_token(response):
+    """Extract access_token from login response."""
+    data = response.json()
+    return data["token"]["access_token"]
+
+
 @pytest.fixture(scope="function")
 def admin_token(client, db_session):
     """Token de admin - crea el admin si no existe en la BD."""
@@ -61,7 +67,7 @@ def admin_token(client, db_session):
         db_session.refresh(admin_user)
     response = _login_user(client, "5550001111", "Admin1234!")
     assert response.status_code == 200, f"Login admin falló: {response.status_code} - {response.text}"
-    return response.json()["access_token"]
+    return _get_access_token(response)
 
 
 @pytest.fixture(scope="function")
@@ -80,7 +86,7 @@ def regular_user_token(client, admin_token, db_session):
         db_session.refresh(barber_user)
     response = _login_user(client, "5550002222", "password123")
     assert response.status_code == 200, f"Login barbero falló: {response.status_code} - {response.text}"
-    return response.json()["access_token"]
+    return _get_access_token(response)
 
 
 @pytest.fixture

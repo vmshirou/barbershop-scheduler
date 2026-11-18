@@ -7,8 +7,9 @@ def test_login_valid(client, admin_token):
     )
     assert response.status_code == 200
     data = response.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"
+    assert "token" in data
+    assert "access_token" in data["token"]
+    assert data["token"]["token_type"] == "bearer"
 
 
 def test_login_invalid(client):

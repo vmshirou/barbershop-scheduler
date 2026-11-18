@@ -1,3 +1,4 @@
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,6 +17,18 @@ def listar(
     _: User = Depends(get_current_user),
 ):
     return db.query(Workday).order_by(Workday.datestamp, Workday.start_time).all()
+
+
+@router.get("/por-fecha/{fecha}", response_model=WorkdayRead)
+def obtener_por_fecha(
+    fecha: date,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    j = db.query(Workday).filter(Workday.datestamp == fecha).first()
+    if not j:
+        raise HTTPException(404, "Jornada no encontrada para esa fecha")
+    return j
 
 
 @router.get("/{id}", response_model=WorkdayRead)
