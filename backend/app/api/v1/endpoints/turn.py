@@ -1,18 +1,30 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
+from pydantic import TypeAdapter
 from app.api.deps import get_current_user, get_db, require_admin
 from app.crud.turn import validate_turn
 from app.models.turn import Turn
 from app.models.user import User, RolEnum
+from app.models.day import Workday
+from app.models.client import Client
+from app.models.service import Service
+from app.schemas.day import WorkdayRead
+from app.schemas.client import ClientBrief
+from app.schemas.service import ServiceBrief
+from app.schemas.user import UserBrief
 from app.schemas.turn import (
     TurnCreate,
     StateTurnUpdate,
     TurnRead,
-    TurnReadDetailed,
     TurnUpdate,
+    WorkdayDetailResponse,
 )
+
+client_list_adapter = TypeAdapter(list[ClientBrief])
+user_list_adapter = TypeAdapter(list[UserBrief])
+service_list_adapter = TypeAdapter(list[ServiceBrief])
+turn_list_adapter = TypeAdapter(list[TurnRead])
 
 router = APIRouter(prefix="/turnos", tags=["turnos"])
 
@@ -46,6 +58,53 @@ def por_jornada_y_barbero(
         .filter(Turn.id_workday == id_jornada, Turn.id_barber == id_barbero)
         .order_by(Turn.start_time)
         .all()
+    )
+
+
+@router.get("/jornada/{id_jornada}/detalle", response_model=WorkdayDetailResponse)
+def detalle_jornada(
+    id_jornada: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Get the workday
+    workday = db.get(Workday, id_jornada)
+    if not workday:
+        raise HTTPException(404, "Jornada no encontrada")
+
+    # Get appointments based on role
+    if current_user.rol == RolEnum.ADMIN:
+        appointments = (
+            db.query(Turn)
+            .filter(Turn.id_workday == id_jornada)
+            .order_by(Turn.start_time)
+            .all()
+        )
+        # Get all clients, services, and barbers for admin
+        clients = db.query(Client).all()
+        services = db.query(Service).all()
+        barbers = db.query(User).filter(User.rol == RolEnum.BARBER).all()
+    else:
+        # Barber: only their appointments
+        appointments = (
+            db.query(Turn)
+            .filter(Turn.id_workday == id_jornada, Turn.id_barber == current_user.id)
+            .order_by(Turn.start_time)
+            .all()
+        )
+        # Get only clients and services related to their appointments
+        client_ids = {a.id_client for a in appointments}
+        service_ids = {a.id_service for a in appointments}
+        clients = db.query(Client).filter(Client.id.in_(client_ids)).all() if client_ids else []
+        services = db.query(Service).filter(Service.id.in_(service_ids)).all() if service_ids else []
+        barbers = [current_user]  # Only themselves as barber
+
+    return WorkdayDetailResponse(
+        workday=WorkdayRead.model_validate(workday),
+        appointments=turn_list_adapter.validate_python(appointments),
+        clients=client_list_adapter.validate_python(clients),
+        services=service_list_adapter.validate_python(services),
+        barbers=user_list_adapter.validate_python(barbers),
     )
 
 

@@ -6,11 +6,8 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApiResource } from '../../../hooks/useApiResource';
 import { useAuth } from '../../auth/hooks/useAuth';
-import { listClients } from '../../clients/api';
-import { listServices } from '../../services/api';
-import { listUsers } from '../../users/api';
 import { listWorkdays } from '../api';
-import { listAppointmentsByWorkday, deleteAppointment } from '../../appointments/api';
+import { deleteAppointment, getWorkdayDetail } from '../../appointments/api';
 import { AppointmentForm } from '../../appointments/components/AppointmentForm';
 import { JornadaTimeline } from '../../appointments/components/WorkdayTimeline';
 import { WorkdayCreateDialog } from '../components/WorkdayCreateDialog';
@@ -31,20 +28,20 @@ export function JornadaPage() {
     const workdays = await listWorkdays();
     const jornada = workdays.find((w) => w.datestamp === date) ?? null;
     if (!jornada) {
-      return { jornada: null, appointments: [], clients: [], services: [], users: [] };
+      return { jornada: null, appointments: [], clients: [], services: [], barbers: [] };
     }
 
-    // Fetch all appointments for the workday
-    // Filtering by barber will be done in visibleAppointments memo
-    let appointments: Appointment[];
-    appointments = await listAppointmentsByWorkday(Number(jornada.id));
-    const [clients, services, users] = await Promise.all([
-      listClients(),
-      listServices(),
-      listUsers(),
-    ]);
-
-    return { jornada, appointments, clients, services, users };
+    // Fetch complete workday detail (appointments, clients, services, barbers)
+    // The backend returns different data based on user role (admin vs barber)
+    const detail = await getWorkdayDetail(Number(jornada.id));
+    console.log(detail);
+    return {
+      jornada: detail.workday,
+      appointments: detail.appointments,
+      clients: detail.clients,
+      services: detail.services,
+      barbers: detail.barbers,
+    };
   }, [date, user?.id, user?.rol]);
 
   const { data, loading, error, reload } = useApiResource(fetchData);
@@ -61,21 +58,21 @@ export function JornadaPage() {
     if (!data || !user) return;
     if (user.rol === 'BARBER') {
       setSelectedBarberId(user.id);
-    } else if (data.users.length > 0 && !selectedBarberId) {
-      const firstBarber = data.users.find((u) => u.rol === 'BARBER');
+    } else if (data.barbers.length > 0 && !selectedBarberId) {
+      const firstBarber = data.barbers[0];
       setSelectedBarberId(firstBarber?.id ?? '');
     }
   }, [data, user, selectedBarberId]);
 
   const barbers = useMemo(
-    () => (data?.users ?? []).filter((u) => u.rol === 'BARBER'),
+    () => data?.barbers ?? [],
     [data],
   );
 
   const visibleAppointments = useMemo(() => {
     if (!data) return [];
     if (user?.rol === 'BARBER') {
-      return data.appointments.filter((a) => String(a.id_barber) === user.id);
+      return data.appointments;
     }
     return data.appointments.filter((a) => a.id_barber === selectedBarberId);
   }, [data, user, selectedBarberId]);
@@ -179,7 +176,7 @@ export function JornadaPage() {
         appointments={visibleAppointments}
         clients={data.clients}
         services={data.services}
-        users={data.users}
+        users={barbers}
         currentUserId={user?.id ?? ''}
         isAdmin={isAdmin}
         onChangeStatus={() => void reload()}

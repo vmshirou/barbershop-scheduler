@@ -1,5 +1,5 @@
 import { apiRequest } from '../../api/client';
-import type { Appointment, AppointmentStatus } from '../../types/domain';
+import type { Appointment, AppointmentStatus, Client, Service, User, Workday } from '../../types/domain';
 
 // Backend expects these field names (snake_case with id_ prefix)
 export interface AppointmentPayload {
@@ -9,6 +9,21 @@ export interface AppointmentPayload {
   id_workday: number;
   start_time: string; // HH:MM format
   notes: string;
+}
+
+// Response types for the workday detail endpoint
+export interface WorkdayDetailAppointment extends Appointment {
+  client: Client;
+  service: Service;
+  barber: User;
+}
+
+export interface WorkdayDetailResponse {
+  workday: Workday;
+  appointments: WorkdayDetailAppointment[];
+  clients: Client[];
+  services: Service[];
+  barbers: User[];
 }
 
 const BASE = '/turnos';
@@ -49,4 +64,10 @@ export function updateAppointmentStatus(
 
 export function deleteAppointment(id: number): Promise<void> {
   return apiRequest<void>(`${BASE}/${id}`, { method: 'DELETE' });
+}
+
+// New endpoint: get complete workday detail (appointments, clients, services, barbers)
+// Returns different data based on user role (admin vs barber)
+export function getWorkdayDetail(workdayId: number): Promise<WorkdayDetailResponse> {
+  return apiRequest<WorkdayDetailResponse>(`${BASE}/jornada/${workdayId}/detalle`);
 }

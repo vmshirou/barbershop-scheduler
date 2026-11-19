@@ -1,12 +1,16 @@
 from datetime import time
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.turn import TurnStateEnum
+from app.models.turn import Turn, TurnStateEnum
+from app.models.user import User
+from app.models.client import Client
 from app.schemas.client import ClientBrief
 from app.schemas.day import WorkdayRead
 from app.schemas.service import ServiceBrief
 from app.schemas.user import UserBrief
+from app.models.service import Service
 
 class TurnBase(BaseModel):
     id_client: int
@@ -43,3 +47,10 @@ class TurnReadDetailed(TurnRead):
     service: ServiceBrief
     barber: UserBrief
     workday: WorkdayRead
+
+class WorkdayDetailResponse(BaseModel):
+    workday: WorkdayRead
+    appointments: List[TurnRead]
+    clients: List[ClientBrief]
+    services: List[ServiceBrief]
+    barbers: List[UserBrief]
