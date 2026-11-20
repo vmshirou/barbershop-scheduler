@@ -1,6 +1,10 @@
 import {
   Box, Card, CardContent, Chip, Stack, Typography,
 } from '@mui/material';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import type {
   Appointment, Client, Service, User, Workday,
 } from '../../../types/domain';
@@ -16,6 +20,8 @@ interface JornadaTimelineProps {
   currentUserId: string;
   isAdmin: boolean;
   onChangeStatus: () => void;
+  onEditAppointment?: (appt: Appointment) => void;
+  onDeleteAppointment?: (appt: Appointment) => void;
 }
 
 type TimelineItem =
@@ -69,7 +75,7 @@ function buildTimeline(
 }
 
 export function JornadaTimeline({
-  jornada, appointments, clients, services, users, currentUserId, isAdmin, onChangeStatus,
+  jornada, appointments, clients, services, users, currentUserId, isAdmin, onChangeStatus, onEditAppointment, onDeleteAppointment
 }: JornadaTimelineProps) {
   console.log(appointments)
   if (appointments.length === 0) {
@@ -161,6 +167,32 @@ export function JornadaTimeline({
                     status={appt.state}
                     onChange={onChangeStatus}
                   />
+                )}
+
+                {isAdmin && (
+                  <Stack direction="row" spacing={2} sx={{ mt: 1, alignItems: 'center' }}>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        color="primary"
+                        size="small"
+                        aria-label="Editar cita"
+                        onClick={() => onEditAppointment?.(appt)}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title="Eliminar">
+                      <IconButton
+                        color="error"
+                        size="small"
+                        aria-label="Eliminar cita"
+                        onClick={() => onDeleteAppointment?.(appt)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                 )}
               </Stack>
             </CardContent>

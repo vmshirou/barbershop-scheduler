@@ -87,6 +87,32 @@ Health check: **GET http://127.0.0.1:8000/health**
 
 > La primera vez crea `database.db` y siembra un usuario admin con las credenciales de `.env` (`FIRST_ADMIN_NOMBRE`, `FIRST_ADMIN_TELEFONO`, `FIRST_ADMIN_PASSWORD`).
 
+#### Ejecutar el seeder de datos de prueba
+
+El proyecto incluye un script de seeder (`app/seed.py`) que genera datos de prueba consistentes con las restricciones del dominio (servicios, clientes, barberos, jornadas y turnos sin solapamientos).
+
+```bash
+cd backend
+
+# Opción 1: Ejecutar como módulo (recomendado)
+python -m app.seed
+
+# Opción 2: Ejecutar directamente
+python app/seed.py
+```
+
+El seeder acepta parámetros opcionales modificando la función `run_seed()` en el archivo:
+- `num_barbers`: Número de barberos a crear (default: 3)
+- `num_clients`: Número de clientes a crear (default: 10)
+- `num_services`: Número de servicios a crear (default: 6)
+- `num_workdays`: Número de jornadas a crear (default: 5)
+- `turns_per_barber`: Turnos por barbero por jornada (default: 3)
+
+El script verifica automáticamente la consistencia de los datos generados:
+- Todos los turnos están dentro de los límites de su jornada (9:00 - 17:00)
+- No hay solapamientos de turnos para el mismo barbero en la misma jornada
+- Diferentes barberos pueden tener turnos a la misma hora
+
 ### 2. Frontend (Vite + React)
 
 ```bash

@@ -18,7 +18,7 @@ import random
 import string
 from datetime import time, date, timedelta
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import engine, SessionLocal, Base  # Agregado Base
 from app.core.security import hash_password
@@ -128,8 +128,7 @@ def create_barbers(db: Session, qty: int = 3) -> list[User]:
         name = random_name()
         phone = random_phone()
         # Verificar que el teléfono no exista
-        exists = db.query(User).filter(User.phone_number == phone).first()
-        if exists:
+        while db.query(User).filter(User.phone_number == phone).first():
             phone = "+52 " + "".join(random.choices(string.digits, k=10))
         user = User(
             name=name,
@@ -148,14 +147,28 @@ def create_barbers(db: Session, qty: int = 3) -> list[User]:
 def create_clients(db: Session, qty: int = 10) -> list[Client]:
     """Crea clientes aleatorios."""
     clients = []
+    used_names = set()
     for _ in range(qty):
         name = random_name()
+        # Asegurar unicidad del nombre dentro del lote actual
+        counter = 1
+        base_name = name
+        while name in used_names:
+            name = f"{base_name} {counter}"
+            counter += 1
+        used_names.add(name)
+        # También verificar contra BD (por si hay datos previos)
+        while db.query(Client).filter(Client.name == name).first():
+            name = f"{base_name} {counter}"
+            counter += 1
+            used_names.add(name)
+        
         phone = random_phone()
-        notes = f"Cliente frecuente desde 2024"
         # Verificar que el teléfono no exista
-        exists = db.query(Client).filter(Client.phone_number == phone).first()
-        if exists:
+        while db.query(Client).filter(Client.phone_number == phone).first():
             phone = "+52 " + "".join(random.choices(string.digits, k=10))
+        
+        notes = f"Cliente frecuente desde 2024"
         client = Client(name=name, phone_number=phone, notes=notes)
         db.add(client)
         clients.append(client)
@@ -234,9 +247,8 @@ def schedule_turns_for_barber(
             new_end = turn_end_min
             
             # Superposición: los intervalos se intersectan
-            # new_begin < et_end AND new_begin > et_begin
-            # O equivalentemente: no (new_end <= et_begin OR new_begin >= et_end)
-            if new_begin < et_end and new_begin > et_begin:
+            # new_begin < et_end AND new_end > et_begin
+            if new_begin < et_end and new_end > et_begin:
                 conflict = True
                 # Mover el turno después del turno existente
                 start_minutes = et_end
@@ -291,12 +303,23 @@ def create_workdays(
     for i in range(days):
         datestamp = start_date + timedelta(days=i)
         
-        # Crear la jornada
-        jd = Workday(start_time=WORKDAY_START, duration=WORKDAY_DURATION, datestamp=datestamp)
-        db.add(jd)
-        db.commit()
-        db.refresh(jd)
-        created.append(jd)  # <-- Agregado
+        # Verificar si ya existe una jornada para esta fecha
+        existing = db.query(Workday).filter(
+            Workday.datestamp == datestamp,
+            Workday.start_time == WORKDAY_START
+        ).first()
+        
+        if existing:
+            jd = existing
+            print(f"   Jornada {datestamp} ya existe, reutilizando...")
+        else:
+            # Crear la jornada
+            jd = Workday(start_time=WORKDAY_START, duration=WORKDAY_DURATION, datestamp=datestamp)
+            db.add(jd)
+            db.commit()
+            db.refresh(jd)
+        
+        created.append(jd)
         
         # Programar turnos para cada barbero en esta jornada
         for barber in barbers:
@@ -363,17 +386,22 @@ def run_seed(
         # Verificar sin solapamientos por barbero por jornada
         overlap_count = 0
         for wd in workdays:
-            wd_turns = db.query(Turn).filter(Turn.id_workday == wd.id).all()
+            wd_turns = db.query(Turn).options(joinedload(Turn.service)).filter(Turn.id_workday == wd.id).all()
             for barber_id in set(t.id_barber for t in wd_turns):
                 barber_turns = [t for t in wd_turns if t.id_barber == barber_id]
                 if len(barber_turns) > 1:
-                    times = sorted([time_to_minutes(t.start_time) for t in barber_turns])
-                    for j in range(len(times) - 1):
-                        # Verificar que hay al menos intervalo mínimo entre turnos
-                        # El final del turno j debe ser <= inicio del turno j+1
-                        dur_j = next(s.duration for s in services if True)  # placeholder
-                        # Simple check ordenado
-                        pass
+                    # Ordenar por hora de inicio
+                    barber_turns.sort(key=lambda t: time_to_minutes(t.start_time))
+                    for j in range(len(barber_turns) - 1):
+                        t1 = barber_turns[j]
+                        t2 = barber_turns[j + 1]
+                        t1_begin = time_to_minutes(t1.start_time)
+                        t1_end = t1_begin + t1.service.duration
+                        t2_begin = time_to_minutes(t2.start_time)
+                        # Verificar solapamiento
+                        if t1_end > t2_begin:
+                            overlap_count += 1
+                            print(f"     ⚠ SOLAPAMIENTO: Barber {barber_id}, Turno {t1.id} ({t1.start_time} - {t1_end}) vs Turno {t2.id} ({t2.start_time})")
         
         print("\n--- Siembra completada exitosamente! ---")
         print(f"   - {len(workdays)} jornadas creadas")

@@ -114,11 +114,19 @@ export function JornadaPage() {
   };
 
   const handleEditAppointment = (appt: Appointment) => {
+    if (!isAdmin) {
+      window.alert('Solo el admin puede editar turnos');
+      return;
+    }
     setEditingAppointment(appt);
     setAppointmentFormOpen(true);
   };
 
   const handleDeleteAppointment = async (appt: Appointment) => {
+    if (!isAdmin) {
+      window.alert('Solo el admin puede eliminar turnos');
+      return;
+    }
     if (!window.confirm('¿Eliminar este turno?')) return;
     try {
       await deleteAppointment(Number(appt.id));
@@ -180,6 +188,11 @@ export function JornadaPage() {
         currentUserId={user?.id ?? ''}
         isAdmin={isAdmin}
         onChangeStatus={() => void reload()}
+        onEditAppointment={(appt) => {
+          setEditingAppointment(appt);
+          setAppointmentFormOpen(true);
+        }}
+        onDeleteAppointment={handleDeleteAppointment}
       />
 
       <WorkdayEditDialog
